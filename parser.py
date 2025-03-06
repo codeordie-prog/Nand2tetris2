@@ -26,7 +26,9 @@ class Parser:
             self.current_command = self.vmcode[self.index]
             print(self.vmcode)
 
-                   
+
+    def get_current_index(self)->int:
+        return int(self.index)           
     
     def hasMoreCommands(self)->bool:
         #are there more commands to process?
@@ -92,25 +94,25 @@ class Parser:
 
         cmd_type = self.commandtype()
 
-        if cmd_type != "C_RETURN":
+        #if cmd_type != "C_RETURN":
 
-            if cmd_type == "C_ARITHMETIC":
-                return self.current_command.split()[0] # return add, sub or any arithmetic command
-            
-            elif cmd_type == "C_FUNCTION":
-                function = self.current_command.split()[1]
-                vars = self.current_command.split()[2]
-                return [function,vars]
-            
-            elif cmd_type == "C_CALL":
-                function = self.current_command.split()[1]
-                vars = self.current_command.split()[2]
+        if cmd_type == "C_ARITHMETIC":
+            return self.current_command.split()[0] # return add, sub or any arithmetic command
+        
+        elif cmd_type == "C_FUNCTION":
+            function = self.current_command.split()[1]
+            vars = self.current_command.split()[2]
+            return [function,vars]
+        
+        elif cmd_type == "C_CALL":
+            function = self.current_command.split()[1]
+            vars = self.current_command.split()[2]
 
-                return [function,vars]
-            
-            else:
+            return [function,vars]
+        
+        else:
 
-                return self.current_command.split()[1] # return the memory segment part 'local', 'argument' etc
+            return self.current_command.split()[1] # return the memory segment part 'local', 'argument' etc
 
 
 
@@ -125,8 +127,8 @@ class Parser:
 
         cmd_type = self.commandtype()
 
-        if cmd_type not in self.MEMORY_SEGMENT_COMMANDS:
-            return
+        #if cmd_type not in self.MEMORY_SEGMENT_COMMANDS:
+            #return
         
         if cmd_type == "C_IF_GOTO":
             return current_command.split()[1]

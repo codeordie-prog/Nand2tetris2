@@ -49,6 +49,8 @@ class VMTranslator:
             
             codewriter.processfiles(self.inputfile)
             self.advance()
+
+        codewriter.close()
       
 
 

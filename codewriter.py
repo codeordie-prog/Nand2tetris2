@@ -1,5 +1,6 @@
 from parser import Parser
 import os
+from pathlib import Path
 
 class CodeWriter:
     def __init__(self, input_file: str, dir:any):
@@ -17,7 +18,7 @@ class CodeWriter:
             "argument": "ARG",
             "this": "THIS",
             "that": "THAT",
-            "temp": "TEMP",
+            "temp": "temp",
             "constant": "CST",
             "pointer":"POINTER"
         }
@@ -120,10 +121,8 @@ class CodeWriter:
                 with open(self.output_file, "a") as file:
 
                     hack_asm_end_loop = """
-                    @END_OF_THE_PROGRAM
-                    0;JMP
-
                     (END_OF_THE_PROGRAM)
+                    @END_OF_THE_PROGRAM
                     0;JMP
                     """
                     file.write(hack_asm_end_loop)
@@ -154,7 +153,8 @@ class CodeWriter:
             return hack_asm
 
         elif command == "lt":
-            hack_asm = """
+            
+            hack_asm = f"""
             @SP
             AM=M-1
             D=M
@@ -176,7 +176,8 @@ class CodeWriter:
             return hack_asm
 
         elif command == "gt":
-            hack_asm = """
+           
+            hack_asm = f"""
             @SP
             AM=M-1
             D=M
@@ -198,7 +199,8 @@ class CodeWriter:
             return hack_asm
 
         elif command == "eq":
-            hack_asm = """
+    
+            hack_asm = f"""
             @SP
             AM=M-1
             D=M
@@ -238,6 +240,22 @@ class CodeWriter:
             M=D|M
             """
             return hack_asm
+        
+        elif command == "neg":
+            hack_asm = """
+            @SP
+            A=M-1
+            M=-M
+            """
+            return hack_asm
+
+        elif command == "not":
+            hack_asm = """
+            @SP
+            A=M-1
+            M=!M
+            """
+            return hack_asm
 
         else:
             return ""
@@ -260,7 +278,8 @@ class CodeWriter:
 
         elif memory_address == "static":
             i = self.parser.args_2()
-            base_name = os.path.splitext(os.path.basename(self.fileName))[0]
+            #base_name = os.path.splitext(os.path.basename(self.fileName))[0]
+            base_name = Path(self.fileName)# gets 'Class1' from Class1.vm
             hack_asm = f"""
             @{base_name}.{i}
             D=M
@@ -332,7 +351,8 @@ class CodeWriter:
 
         if memory_address == "static":
             i = self.parser.args_2()
-            base_name = os.path.splitext(os.path.basename(self.fileName))[0]
+            #base_name = os.path.splitext(os.path.basename(self.fileName))[0]
+            base_name = Path(self.fileName)
             hack_asm = f"""
             @SP
             AM=M-1
@@ -395,27 +415,79 @@ class CodeWriter:
         
 
     def writeInit(self):
-        #initializes bootstrapping
-        hack_asm = f"""
-        @256 //initialize stack
+        hack_asm = """
+        @256  // Initialize stack pointer
         D=A
-
-        @SP //set SP to 256
+        @SP
         M=D
 
-        @Sys.init  //jump to Sys.init
+        // Call Sys.init
+        @Sys.init$ret.0  // Push return address
+        D=A
+        @SP
+        A=M
+        M=D
+        @SP
+        M=M+1
+
+        @LCL  // Push LCL
+        D=M
+        @SP
+        A=M
+        M=D
+        @SP
+        M=M+1
+
+        @ARG  // Push ARG
+        D=M
+        @SP
+        A=M
+        M=D
+        @SP
+        M=M+1
+
+        @THIS  // Push THIS
+        D=M
+        @SP
+        A=M
+        M=D
+        @SP
+        M=M+1
+
+        @THAT  // Push THAT
+        D=M
+        @SP
+        A=M
+        M=D
+        @SP
+        M=M+1
+
+        @SP  // ARG = SP - 5 - 0
+        D=M
+        @5
+        D=D-A
+        @0
+        D=D-A
+        @ARG
+        M=D
+
+        @SP  // LCL = SP
+        D=M
+        @LCL
+        M=D
+
+        @Sys.init  // Jump to Sys.init
         0;JMP
-        
 
+        (Sys.init$ret.0)  // Return address label
         """
-
         return hack_asm
 
     def setFileName(self, fileName:str):
         #informs code writer that a new vm file has started(called by the main program)
         self.newFileHasStarted=True
         self.hasMoreFiles = True
-        self.fileName=fileName
+        self.fileName=Path(fileName).stem
         self.newFileHasStarted = True
 
         #self.file = open(self.output_file, "a")
@@ -426,28 +498,34 @@ class CodeWriter:
 
     def writeLabel(self,label:str):
         #writes assemble code that effects the label command
+        function_name = self.fileName if self.fileName else ""
+        full_label = f"{function_name}${label}"
         return f"""
-                ({label})
+                ({full_label})
                 """
 
 
     def writeGoto(self,label:str):
         #writes assemble code that effects goto commands
+        function_name = self.fileName if self.fileName else ""
+        full_label = f"{function_name}${label}"
         return f"""
-                @{label}
+                @{full_label}
                 0;JMP 
                 """
 
 
     def writeIf(self,label:str):
         #writes assembly code that effectc if goto commands
+        function_name = self.fileName if self.fileName else ""
+        full_label = f"{function_name}${label}"
         return f"""
             @SP
             AM=M-1
 
             D=M
 
-            @{label}  //Jump if True else dont jump
+            @{full_label}  //Jump if True else dont jump
             D;JNE
 
             """
@@ -459,7 +537,7 @@ class CodeWriter:
         # Initialize local variables to 0
         push_cmd = ""
         for _ in range(int(numVars)):
-            push_cmd += (f"""
+            push_cmd += """
                 @0    // Load 0
                 D=A   // Store 0 in D
                 @SP   // Push D onto the stack
@@ -467,7 +545,7 @@ class CodeWriter:
                 M=D
                 @SP   // Increment SP
                 M=M+1
-            """)
+            """
 
     
 
@@ -476,180 +554,156 @@ class CodeWriter:
 
 
     def writeCall(self, functionName:str, numArgs:int):
-        #writes assembly code that effects call commmand
-        self.return_counter+=1
-
+        # Writes assembly code that effects call command
+        self.return_counter += 1
+        
         return_label = f"{functionName}$ret.{self.return_counter}"
+        
         ARG_displ = int(numArgs) + 5
         push_cmd = f"""
-                            @{return_label} //push return address
-                            D=A
+            @{return_label} //push return address
+            D=A
+            @SP
+            A=M
+            M=D
+            @SP
+            M=M+1
 
-                            @SP
-                            A=M
-                            M=D
+            @LCL //push local segment of caller
+            D=M
+            @SP
+            A=M
+            M=D
+            @SP
+            M=M+1
+            
+            @ARG //push ARG of caller
+            D=M
+            @SP
+            A=M
+            M=D
+            @SP
+            M=M+1
 
-                            @SP
-                            M=M+1
+            @THIS //push this of caller
+            D=M
+            @SP
+            A=M
+            M=D
+            @SP
+            M=M+1
 
+            @THAT // push that of caller
+            D=M
+            @SP
+            A=M
+            M=D
+            @SP
+            M=M+1
 
-                            @LCL //push local segment of caller
-                            D=M
+            @SP // set ARG = SP-n-5
+            D=M
+            @{ARG_displ} //SP-n-5
+            D=D-A
+            @ARG
+            M=D
 
-                            @SP
-                            A=M
-                            M=D
+            @SP
+            D=M
+            @LCL // set LCL=SP
+            M=D
 
-                            @SP
-                            M=M+1
+            @{functionName} //goto
+            0;JMP
 
-                            
-                            @ARG //push ARG of caller
-                            D=M
-
-                            @SP
-                            A=M
-                            M=D
-
-                            @SP
-                            M=M+1
-
-
-                            @THIS //push this of caller
-                            D=M
-
-                            @SP
-                            A=M
-                            M=D
-
-                            @SP
-                            M=M+1
-
-                            @THAT // push that of caller
-                            D=M
-
-                            @SP
-                            A=M
-                            M=D
-
-                            @SP
-                            M=M+1
-
-                    
-
-                            @SP // set ARG = SP-n-5
-                            D=M
-
-                            @{ARG_displ} //SP-n-5
-                            D=D-A
-
-                            @ARG
-                            M = D
-
-                            @SP
-                            D=M
-
-                            @LCL // set LCL=SP
-                            M=D
-
-                            @{functionName}
-                            0;JMP
-
-                            ({return_label}) //insert the return label
-                            
-
-                            """
+            ({return_label}) //insert the return label
+        """
         
         return push_cmd
 
-
     def writeReturn(self):
-        #writes assembly code that effects return commands
+        # Writes assembly code for return command
         return_cmd = f"""
+            // endFrame = LCL
+            @LCL
+            D=M
+            @R13    // R13 is endFrame
+            M=D
             
-                @LCL
-                D=M
-
-                @endFrame //endframe = LCL
-                M=D
-
-                @endFrame
-                D=M
-
-                @5
-                A=D-A //return address
-                D=M
-
-
-                @retAddr
-                M=D
-
-                @SP
-                AM=M-1
-                D=M
-
-                @ARG //*ARG = POP()
-                A=M
-                M=D //copy return value to argument 0
-
-                @ARG
-                D=M+1  //set SP to point immediately after return value
-
-                @SP //reset SP
-                M=D
-
-                @endFrame
-                D=M
-
-                @1
-                A=D-A
-                D=M
-
-                @THAT //recover THAT
-                M=D
-
-        
-                @endFrame
-                D=M
-
-                @2
-                A=D-A
-                D=M
-
-                @THIS //recover THIS
-                M=D
-
-                @endFrame
-                D=M
-
-                @3
-                A=D-A
-                D=M
-
-                @ARG
-                M=D
-
-                @endFrame
-                D=M
-
-                @4
-                A=D-A
-                D=M
-
-                @LCL
-                M=D
-
-                @retAddr
-                A=M
-                0;JMP
-
-            """
-        
+            // retAddr = *(endFrame-5)
+            @5
+            A=D-A   // A = LCL-5
+            D=M     // D = *(LCL-5)
+            @R14    // R14 is retAddr
+            M=D
+            
+            // *ARG = pop()
+            @SP
+            AM=M-1
+            D=M
+            @ARG
+            A=M
+            M=D
+            
+            // SP = ARG+1
+            @ARG
+            D=M+1
+            @SP
+            M=D
+            
+            // THAT = *(endFrame-1)
+            @R13
+            D=M
+            @1
+            A=D-A
+            D=M
+            @THAT
+            M=D
+            
+            // THIS = *(endFrame-2)
+            @R13
+            D=M
+            @2
+            A=D-A
+            D=M
+            @THIS
+            M=D
+            
+            // ARG = *(endFrame-3)
+            @R13
+            D=M
+            @3
+            A=D-A
+            D=M
+            @ARG
+            M=D
+            
+            // LCL = *(endFrame-4)
+            @R13
+            D=M
+            @4
+            A=D-A
+            D=M
+            @LCL
+            M=D
+            
+            // goto retAddr
+            @R14
+            A=M
+            0;JMP
+        """
         return return_cmd
 
 
     def close(self):
-        self.file.close()
+        # Add the infinite loop at the end
+        with open(self.output_file, "a") as file:
+            hack_asm_end_loop = """
+            (END_OF_THE_PROGRAM)
+            @END_OF_THE_PROGRAM
+            0;JMP
+            """
+            file.write(hack_asm_end_loop)
 
 
 #CodeWriter(input_file=r"C:\Users\LENOVO\Documents\nand_2_tetris_2\nand2tetris\projects\7\MemoryAccess\BasicTest\BasicTest.vm")
